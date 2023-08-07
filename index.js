@@ -8,19 +8,19 @@ const fetchDataFromFirebase = async () => {
     const response = await axios.get(`${firebaseDatabaseURL}/data.json`);
     const data = response.data;
     console.log('Fetched data from Firebase:', data);
+    fetchTransactions("4JOmaT9fFe2ojFJEls3Zow5UKO2CBOk7lOirbPTtX1o");
     return data;
   } catch (error) {
     console.error('Error fetching data from Firebase:', error.message);
     return null;
   }
 };
-const  walletAddress = '4JOmaT9fFe2ojFJEls3Zow5UKO2CBOk7lOirbPTtX1o';
 
 // now use the extracted walletaddress to fetch transactions
 const fetchTransactions = async (walletAddress) => {
     try {
         const recipientsQuery = `{
-            transactions(recipients: ["4JOmaT9fFe2ojFJEls3Zow5UKO2CBOk7lOirbPTtX1o"]) {
+            transactions(recipients: ["${walletAddress}"]) {
               edges {
                 node {
                   id
@@ -51,7 +51,7 @@ const fetchTransactions = async (walletAddress) => {
   
           // Fetch transactions for owners
           const ownersQuery = `{
-            transactions(owners: ["4JOmaT9fFe2ojFJEls3Zow5UKO2CBOk7lOirbPTtX1o"]) {
+            transactions(owners: ["${walletAddress}"]) {
               edges {
                 node {
                   id
@@ -91,11 +91,8 @@ const fetchTransactions = async (walletAddress) => {
                 const transactionTimestamp = transaction.block.timestamp;
                 const currentTimestamp = Date.now() / 1000;
                 const difference = currentTimestamp - transactionTimestamp;
-                console.log(difference);
-                return difference <= 6000;
+                return difference <= 120;
             });
-
-            console.log(filteredTransactions);
 
             // now check if the filtered transactions are more than 0
             if (filteredTransactions.length > 0) {
@@ -112,8 +109,6 @@ const fetchTransactions = async (walletAddress) => {
         console.error('Error fetching transactions:', error.message);
     }
 }
-
-fetchTransactions();
 
 // Schedule the job to run every two minutes
 const cronJob = new CronJob('*/2 * * * *', fetchDataFromFirebase);
