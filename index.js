@@ -105,7 +105,6 @@ const fetchTransactions = async (walletAddress,emails) => {
     const ownerTransactions = ownersResponse.data.data.transactions.edges.map(
       (edge) => edge.node
     );
-    console.log("ownerTransactions are", ownerTransactions);
 
     // Filter recipient transactions by timestamp
     const recipientfilteredTransactions = recipientTransactions.filter(
@@ -122,24 +121,25 @@ const fetchTransactions = async (walletAddress,emails) => {
       const transactionTimestamp = transaction.block.timestamp;
       const currentTimestamp = Date.now() / 1000;
       const difference = currentTimestamp - transactionTimestamp;
-      return difference <= 12000000;
+      return difference <= 120;
     });
 
 
 // now check if the filtered transactions are more than 0
 if (recipientfilteredTransactions.length > 0) {
-
+  console.log('Recipient transactions found', recipientfilteredTransactions);
   // Send individual emails to each owner with their corresponding transactions
   for (let i = 0; i < ownerfilteredTransactions.length; i++) {
   const transaction = ownerfilteredTransactions[i];
   const ownerEmail = emails;
-  console.log("ownerEmail is", ownerEmail);
   const owner = transaction.owner.address;
   const transid = transaction.id;
   const fees = transaction.fee.ar;
   const quantity = transaction.quantity.ar;
   const transactionTimestamps = transaction.block.timestamp;
   const transactionTimestamp = new Date(transactionTimestamps * 1000).toUTCString();
+
+  if (quantity > 0) {
 // now send the filtered transactions to the nodemailer api to send email with all details of that transaction
   const response = await axios.post('https://trackrhub.onrender.com/receipt', {
         email: ownerEmail,
@@ -153,7 +153,24 @@ if (recipientfilteredTransactions.length > 0) {
   console.log("recipientfilteredTransactions are", recipientfilteredTransactions);
   console.log('Email sent successfully',emails);
   console.log('Transaction:', transaction);
+    } else {
+      // Now send the filtered transaction and owner email to the nodemailer API
+      try {
+        const response = await axios.post('https://trackrhub.onrender.com/contract', {
+          email: ownerEmail,
+          transid: transid,
+          fees: fees,
+          quantity: quantity,
+          transactionTimestamp: transactionTimestamp,
+        });
+        console.log("response is", response);
+        console.log(`Email sent successfully to ${ownerEmail}`);
+        console.log('Transaction:', transaction);
+      } catch (error) {
+        console.error('Error sending email:', error);
+      }
     }
+  }
 } else {
   console.log('No Reciptant transactions found');
 }
@@ -175,7 +192,7 @@ if (ownerfilteredTransactions.length > 0 ) {
     const transactionTimestamps = transaction.block.timestamp;
     const transactionTimestamp = new Date(transactionTimestamps * 1000).toUTCString();
 
-   if (appName === 'N/A') {
+   if (quantity > 0) {
     try {
       const response = await axios.post('https://trackrhub.onrender.com/owner', {
         email: ownerEmail,
