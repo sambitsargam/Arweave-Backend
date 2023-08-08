@@ -203,7 +203,8 @@ if (ownerfilteredTransactions.length > 0 && ownerfilteredTransactions.recipient 
     const appNameTag = transaction.tags.find(tag => tag.name === 'App-Name');
     const appName = appNameTag ? appNameTag.value : 'N/A';
     const fees = transaction.fee.ar;
-    const transactionTimestamp = transaction.block.timestamp;
+    const transactionTimestamps = transaction.block.timestamp;
+    const transactionTimestamp = new Date(transactionTimestamps * 1000).toUTCString();
 
     // Now send the filtered transaction and owner email to the nodemailer API
     try {
@@ -212,7 +213,6 @@ if (ownerfilteredTransactions.length > 0 && ownerfilteredTransactions.recipient 
         appName: appName,
         transid: transid,
         fees: fees,
-        quantity: quantity,
         transactionTimestamp: transactionTimestamp,
       });
       console.log("response is", response);
