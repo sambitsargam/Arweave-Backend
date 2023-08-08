@@ -9,12 +9,20 @@ const fetchDataFromFirebase = async () => {
     const data = response.data;
     console.log('Fetched data from Firebase:', data);
     const walletAddresses = Object.values(data).map(entry => entry.walletAddress);
-
+    const emails = Object.values(data).map(entry => entry.email);
+    
+    console.log('Wallet addresses and emails:', walletAddresses, emails);
+    
     // Assuming you want to fetch transactions for all wallet addresses, you can loop through them
-    for (const walletAddress of walletAddresses) {
-      // Call the fetchTransactions function with the extracted wallet address
-      await fetchTransactions(walletAddress);
+    for (let i = 0; i < walletAddresses.length; i++) {
+      const walletAddress = walletAddresses[i];
+      const email = emails[i];
+      console.log('Fetching transactions for wallet address:', walletAddress);
+    
+      // Call the fetchTransactions function with the extracted wallet address and email
+      await fetchTransactions(walletAddress, email);
     }
+    
     return data;
   } catch (error) {
     console.error('Error fetching data from Firebase:', error.message);
@@ -23,7 +31,7 @@ const fetchDataFromFirebase = async () => {
 };
 
 // now use the extracted walletaddress to fetch transactions
-const fetchTransactions = async (walletAddress) => {
+const fetchTransactions = async (walletAddress,emails) => {
   try {
     const recipientsQuery = `{
       transactions(recipients: ["${walletAddress}"]) {
@@ -60,6 +68,7 @@ const fetchTransactions = async (walletAddress) => {
     const recipientTransactions = recipientsResponse.data.data.transactions.edges.map(
       (edge) => edge.node
     );
+    console.log("recipientTransactions are", recipientTransactions);
 
     const ownersQuery = `{
       transactions(owners: ["${walletAddress}"]) {
@@ -96,6 +105,7 @@ const fetchTransactions = async (walletAddress) => {
     const ownerTransactions = ownersResponse.data.data.transactions.edges.map(
       (edge) => edge.node
     );
+    console.log("ownerTransactions are", ownerTransactions);
 
     // Filter recipient transactions by timestamp
     const recipientfilteredTransactions = recipientTransactions.filter(
@@ -103,7 +113,7 @@ const fetchTransactions = async (walletAddress) => {
         const transactionTimestamp = transaction.block.timestamp;
         const currentTimestamp = Date.now() / 1000;
         const difference = currentTimestamp - transactionTimestamp;
-        return difference <= 120;
+        return difference <= 12000000;
       }
     );
 
@@ -112,16 +122,113 @@ const fetchTransactions = async (walletAddress) => {
       const transactionTimestamp = transaction.block.timestamp;
       const currentTimestamp = Date.now() / 1000;
       const difference = currentTimestamp - transactionTimestamp;
-      return difference <= 120;
+      return difference <= 12000000;
     });
 
-    // Rest of your code for sending email notifications
 
+// now check if the filtered transactions are more than 0
+if (recipientfilteredTransactions.length > 0) {
+
+  // Send individual emails to each owner with their corresponding transactions
+  for (let i = 0; i < ownerfilteredTransactions.length; i++) {
+  const transaction = ownerfilteredTransactions[i];
+  const ownerEmail = emails;
+  console.log("ownerEmail is", ownerEmail);
+  const owner = transaction.owner.address;
+  const transid = transaction.id;
+  const fees = transaction.fee.ar;
+  const quantity = transaction.quantity.ar;
+  const transactionTimestamp = transaction.block.timestamp;
+  // now send the filtered transactions to the nodemailer api to send email with all details of that transaction
+  const response = await axios.post('https://trackrhub.onrender.com/receipt', {
+        email: ownerEmail,
+        owner: owner,
+        transid: transid,
+        fees: fees,
+        quantity: quantity,
+        transactionTimestamp: transactionTimestamp,
+      });
+  console.log("response is", response);
+  console.log("recipientfilteredTransactions are", recipientfilteredTransactions);
+  console.log('Email sent successfully',emails);
+  console.log('Transaction:', transaction);
+    }
+} else {
+  console.log('No Reciptant transactions found');
+}
+
+
+
+if (ownerfilteredTransactions.length > 0 && ownerfilteredTransactions.recipient != null) {
+
+  // Send individual emails to each owner with their corresponding transactions
+  for (let i = 0; i < ownerfilteredTransactions.length; i++) {
+    const transaction = ownerfilteredTransactions[i];
+    const ownerEmail = emails;
+    const recipient = transaction.recipient;
+    const transid = transaction.id;
+    const fees = transaction.fee.ar;
+    const quantity = transaction.quantity.ar;
+    const transactionTimestamp = transaction.block.timestamp;
+
+    // Now send the filtered transaction and owner email to the nodemailer API
+    try {
+      const response = await axios.post('https://trackrhub.onrender.com/owner', {
+        email: ownerEmail,
+        receipt: recipient,
+        transid: transid,
+        fees: fees,
+        quantity: quantity,
+        transactionTimestamp: transactionTimestamp,
+      });
+      console.log("response is", response);
+      console.log(`Email sent successfully to ${ownerEmail}`);
+      console.log('Transaction:', transaction);
+    } catch (error) {
+      console.error('Error sending email:', error);
+    }
+  }
+} else {
+  console.log('No Owner transactions found');
+};
+
+
+if (ownerfilteredTransactions.length > 0 && ownerfilteredTransactions.recipient == null) {
+
+  // Send individual emails to each owner with their corresponding transactions
+  for (let i = 0; i < ownerfilteredTransactions.length; i++) {
+    const transaction = ownerfilteredTransactions[i];
+    const ownerEmail = emails;
+    const transid = transaction.id;
+    const appNameTag = transaction.tags.find(tag => tag.name === 'App-Name');
+    const appName = appNameTag ? appNameTag.value : 'N/A';
+    const fees = transaction.fee.ar;
+    const transactionTimestamp = transaction.block.timestamp;
+
+    // Now send the filtered transaction and owner email to the nodemailer API
+    try {
+      const response = await axios.post('https://trackrhub.onrender.com/contract', {
+        email: ownerEmail,
+        appName: appName,
+        transid: transid,
+        fees: fees,
+        quantity: quantity,
+        transactionTimestamp: transactionTimestamp,
+      });
+      console.log("response is", response);
+      console.log(`Email sent successfully to ${ownerEmail}`);
+      console.log('Transaction:', transaction);
+    } catch (error) {
+      console.error('Error sending email:', error);
+    }
+  }
+} else {
+  console.log('No Owner transactions found');
+}
   } catch (error) {
     console.error('Error fetching transactions:', error.message);
   }
 };
-
 // Schedule the job to run every two minutes
 const cronJob = new CronJob('*/2 * * * *', fetchDataFromFirebase);
 
