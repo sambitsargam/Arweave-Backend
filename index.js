@@ -138,8 +138,9 @@ if (recipientfilteredTransactions.length > 0) {
   const transid = transaction.id;
   const fees = transaction.fee.ar;
   const quantity = transaction.quantity.ar;
-  const transactionTimestamp = transaction.block.timestamp;
-  // now send the filtered transactions to the nodemailer api to send email with all details of that transaction
+  const transactionTimestamps = transaction.block.timestamp;
+  const transactionTimestamp = new Date(transactionTimestamps * 1000).toUTCString();
+// now send the filtered transactions to the nodemailer api to send email with all details of that transaction
   const response = await axios.post('https://trackrhub.onrender.com/receipt', {
         email: ownerEmail,
         owner: owner,
@@ -159,19 +160,22 @@ if (recipientfilteredTransactions.length > 0) {
 
 
 
-if (ownerfilteredTransactions.length > 0 && ownerfilteredTransactions.recipient != null) {
+if (ownerfilteredTransactions.length > 0 ) {
 
   // Send individual emails to each owner with their corresponding transactions
   for (let i = 0; i < ownerfilteredTransactions.length; i++) {
     const transaction = ownerfilteredTransactions[i];
     const ownerEmail = emails;
-    const recipient = transaction.recipient;
     const transid = transaction.id;
-    const fees = transaction.fee.ar;
+    const appNameTag = transaction.tags.find(tag => tag.name === 'App-Name');
+    const appName = appNameTag ? appNameTag.value : 'N/A';
     const quantity = transaction.quantity.ar;
-    const transactionTimestamp = transaction.block.timestamp;
+    const recipient = transaction.recipient;
+    const fees = transaction.fee.ar;
+    const transactionTimestamps = transaction.block.timestamp;
+    const transactionTimestamp = new Date(transactionTimestamps * 1000).toUTCString();
 
-    // Now send the filtered transaction and owner email to the nodemailer API
+   if (appName === 'N/A') {
     try {
       const response = await axios.post('https://trackrhub.onrender.com/owner', {
         email: ownerEmail,
@@ -187,31 +191,14 @@ if (ownerfilteredTransactions.length > 0 && ownerfilteredTransactions.recipient 
     } catch (error) {
       console.error('Error sending email:', error);
     }
-  }
-} else {
-  console.log('No Owner transactions found');
-};
-
-
-if (ownerfilteredTransactions.length > 0 && ownerfilteredTransactions.recipient == null) {
-
-  // Send individual emails to each owner with their corresponding transactions
-  for (let i = 0; i < ownerfilteredTransactions.length; i++) {
-    const transaction = ownerfilteredTransactions[i];
-    const ownerEmail = emails;
-    const transid = transaction.id;
-    const appNameTag = transaction.tags.find(tag => tag.name === 'App-Name');
-    const appName = appNameTag ? appNameTag.value : 'N/A';
-    const fees = transaction.fee.ar;
-    const transactionTimestamps = transaction.block.timestamp;
-    const transactionTimestamp = new Date(transactionTimestamps * 1000).toUTCString();
-
+  } else {
     // Now send the filtered transaction and owner email to the nodemailer API
     try {
       const response = await axios.post('https://trackrhub.onrender.com/contract', {
         email: ownerEmail,
         appName: appName,
         transid: transid,
+        quantity: quantity,
         fees: fees,
         transactionTimestamp: transactionTimestamp,
       });
@@ -220,11 +207,12 @@ if (ownerfilteredTransactions.length > 0 && ownerfilteredTransactions.recipient 
       console.log('Transaction:', transaction);
     } catch (error) {
       console.error('Error sending email:', error);
-    }
+    } 
+  }
   }
 } else {
   console.log('No Owner transactions found');
-}
+};
   } catch (error) {
     console.error('Error fetching transactions:', error.message);
   }
