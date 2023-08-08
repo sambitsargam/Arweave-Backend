@@ -80,14 +80,16 @@ const fetchTransactions = async (walletAddress) => {
   
           const ownersResponse = await axios.post("https://arweave.net/graphql", { query: ownersQuery });
   
-          // Merge transactions data
-          const recipientsTransactions = recipientsResponse.data.data.transactions.edges.map(edge => edge.node);
-          const ownersTransactions = ownersResponse.data.data.transactions.edges.map(edge => edge.node);
-  
-          const mergedTransactions = [...recipientsTransactions, ...ownersTransactions];
 
           // now check timestamps of all transactions and filter out the ones that are done with in thats 60 seconds
-            const filteredTransactions = mergedTransactions.filter(transaction => {
+            const recipientfilteredTransactions = recipientsResponse.filter(transaction => {
+                const transactionTimestamp = transaction.block.timestamp;
+                const currentTimestamp = Date.now() / 1000;
+                const difference = currentTimestamp - transactionTimestamp;
+                return difference <= 120;
+            });
+
+            const ownerfilteredTransactions = ownersResponse.filter(transaction => {
                 const transactionTimestamp = transaction.block.timestamp;
                 const currentTimestamp = Date.now() / 1000;
                 const difference = currentTimestamp - transactionTimestamp;
@@ -95,16 +97,29 @@ const fetchTransactions = async (walletAddress) => {
             });
 
             // now check if the filtered transactions are more than 0
-            if (filteredTransactions.length > 0) {
+            if (recipientfilteredTransactions.length > 0) {
                 // now send the filtered transactions to the nodemailer api to send email with all details of that transaction
                 const response = await axios.post('https://arhubtracker.herokuapp.com/api/send-email', {
-                    transactions: filteredTransactions
+                    transactions: recipientfilteredTransactions
                 });
-                console.log(filteredTransactions)
+                console.log("recipientfilteredTransactions are", recipientfilteredTransactions);
                 console.log('Email sent successfully');
             } else {
-                console.log('No transactions found');
+                console.log('No Reciptant transactions found');
             }
+
+            if (ownerfilteredTransactions.length > 0) {
+                // now send the filtered transactions to the nodemailer api to send email with all details of that transaction
+                const response = await axios.post('https://arhubtracker.herokuapp.com/api/send-email', {
+                    transactions: ownerfilteredTransactions
+                });
+                console.log("ownerfilteredTransactions are", ownerfilteredTransactions);
+                console.log('Email sent successfully');
+            }
+            else {
+                console.log('No Owner transactions found');
+            }
+            
     } catch (error) {
         console.error('Error fetching transactions:', error.message);
     }
